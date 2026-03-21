@@ -1,0 +1,1 @@
+# Encuesta Backend - Django Project
