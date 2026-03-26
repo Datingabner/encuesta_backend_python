@@ -1,16 +1,22 @@
 """
 Vistas (Views) para la API REST de Encuestas
 """
+import json
 import logging
+import os
 import threading
 import uuid
+from django.http import JsonResponse
+from django.views import View
+from django.utils.decorators import method_decorator
+from django.views.decorators.csrf import csrf_exempt
 from datetime import timedelta
 from django.utils import timezone
 from django.conf import settings
 from django.db.models import Avg, Count, Q
 from rest_framework import status, viewsets, generics
 from rest_framework.decorators import api_view, permission_classes, action
-from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.permissions import AllowAny, IsAuthenticated, BasePermission
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.views import TokenObtainPairView
@@ -30,6 +36,29 @@ from .serializers import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+# ============== Custom Permissions ==============
+
+class APIKeyPermission(BasePermission):
+    """
+    Permiso personalizado para autenticación via API Key
+    Se usa para endpoints de Admin/RH
+    """
+    message = 'Acceso denegado. Se requieren credenciales de RRHH válidas.'
+    
+    def has_permission(self, request, view):
+        # Obtener API Key del header o query params
+        api_key = request.headers.get('x-api-key') or request.query_params.get('api_key')
+        
+        # Obtener la API Key configurada en settings
+        admin_api_key = getattr(settings, 'ADMIN_API_KEY', '')
+        
+        # Verificar que ambas API Keys existan y coincidan
+        if not api_key or not admin_api_key:
+            return False
+        
+        return api_key == admin_api_key
 
 
 # ============== Auth Views ==============
@@ -87,10 +116,10 @@ class TokenObtainPairViewCustom(TokenObtainPairView):
 # ============== Survey Views ==============
 
 class EncuestaViewSet(viewsets.ModelViewSet):
-    """ViewSet para encuestas"""
+    """ViewSet para encuestas (Admin/RH)"""
     queryset = Encuesta.objects.all()
     serializer_class = EncuestaSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [APIKeyPermission]
     
     def get_serializer_class(self):
         if self.action == 'retrieve':
@@ -180,7 +209,7 @@ class SubmitSurveyView(APIView):
         RespuestasEncuesta.save_batch(request.user.id, survey.id, responses, session_id)
         
         # Actualizar progreso
-        result = ResultadoEncuestas.record_progress(
+        ResultadoEncuestas.record_progress(
             request.user.id, 
             survey.id,
             {
@@ -191,6 +220,7 @@ class SubmitSurveyView(APIView):
                 'recomendaciones': 'Consultar con el departamento de RRHH para más información.'
             }
         )
+        
         
         # Enviar alerta a RRHH
         self._enviar_alerta_rrhh(request.user, survey, score, interpretation)
@@ -265,23 +295,9 @@ class SubmitSurveyView(APIView):
         
         def enviar_async():
             try:
-                print(f"[EMAIL] Intentando registrar notificacion para empleado {empleado.id}")
                 Notificacion.registrar_alerta(empleado.id, encuesta.id, email_rrhh, asunto, cuerpo, 'enviado', timezone.now())
-                print(f"[EMAIL] Notificacion registrada en BD")
-                
-                print(f"[EMAIL] Enviando email a {email_rrhh}")
-                print(f"[EMAIL] EMAIL_HOST: {settings.EMAIL_HOST}")
-                print(f"[EMAIL] EMAIL_PORT: {settings.EMAIL_PORT}")
-                print(f"[EMAIL] EMAIL_USER: {settings.EMAIL_HOST_USER}")
-                print(f"[EMAIL] DEFAULT_FROM: {settings.DEFAULT_FROM_EMAIL}")
-                
-                result = send_mail(asunto, cuerpo, settings.DEFAULT_FROM_EMAIL, [email_rrhh], html_message=cuerpo, fail_silently=False)
-                print(f"[EMAIL] Resultado del send_mail: {result}")
                 logger.info(f"Alerta enviada a RRHH para empleado {empleado.numero_empleado}")
             except Exception as e:
-                print(f"[EMAIL ERROR] Error al enviar alerta: {e}")
-                import traceback
-                print(f"[EMAIL ERROR] Traceback: {traceback.format_exc()}")
                 logger.error(f"Error al enviar alerta: {e}")
         
         threading.Thread(target=enviar_async, daemon=True).start()
@@ -382,29 +398,18 @@ class GetProgressView(APIView):
 
 class GetResultsView(APIView):
     """Obtener resultados de encuestas (solo para RRHH)"""
-    permission_classes = [IsAuthenticated]
+    permission_classes = [APIKeyPermission]
 
     def get(self, request):
-        # Verificar API key de admin
-        api_key = request.headers.get('x-api-key') or request.query_params.get('api_key')
-        admin_api_key = getattr(settings, 'ADMIN_API_KEY', '')
-        
-        if not admin_api_key or api_key != admin_api_key:
-            return Response({
-                'success': False,
-                'error': 'Acceso denegado. Se requieren credenciales de RRHH.'
-            }, status=status.HTTP_403_FORBIDDEN)
         
         # Obtener parámetros de filtro
         departamento = request.query_params.get('departamento')
         tipo_encuesta = request.query_params.get('tipo_encuesta')
-        iniciado_en = request.query_params.get('iniciado_en')
-        enviado_en = request.query_params.get('enviado_en')
         
         # Construir query
         queryset = ResultadoEncuestas.objects.filter(
             estado='completada'
-        ).select_related('empleado', 'encuesta').prefetch_related('respuestas')
+        ).select_related('empleado', 'encuesta')
         
         if departamento:
             queryset = queryset.filter(empleado__id_departamento=departamento)
@@ -415,10 +420,22 @@ class GetResultsView(APIView):
         # Ordenar y limitar
         results = queryset.order_by('-fecha_completado')[:100]
         
+        # Optimización: Obtener todas las respuestas en una sola consulta
+        result_ids = [(r.empleado_id, r.encuesta_id) for r in results]
+        respuestas_dict = {}
+        if result_ids:
+            respuestas_query = RespuestasEncuesta.objects.filter(
+                empleado_id__in=[r[0] for r in result_ids],
+                encuesta_id__in=[r[1] for r in result_ids]
+            )
+            for resp in respuestas_query:
+                respuestas_dict[(resp.empleado_id, resp.encuesta_id)] = resp
+        
         # Formatear resultados
         formatted_results = []
         for result in results:
-            respuestas = result.respuestas.first()
+            # Obtener respuestas del diccionario (sin consulta adicional)
+            respuestas = respuestas_dict.get((result.empleado_id, result.encuesta_id))
             formatted_results.append({
                 'empleado': {
                     'id': result.empleado.id,
@@ -459,3 +476,62 @@ class GetResultsView(APIView):
                 }
             }
         })
+
+
+@method_decorator(csrf_exempt, name='dispatch')
+class ValidateApiKeyView(View):
+    """
+    Valida la API Key del administrador.
+    Soporta validación via POST (body) o GET (header x-api-key).
+    """
+    
+    def get(self, request):
+        """Valida la API Key desde el header x-api-key (para uso en CORS)"""
+        # Obtener API Key desde header
+        api_key = request.headers.get('x-api-key') or request.GET.get('api_key')
+        
+        # Obtener la API key desde settings
+        admin_api_key = getattr(settings, 'ADMIN_API_KEY', '')
+        
+        if not api_key:
+            return JsonResponse({
+                'valid': False,
+                'message': 'La API Key es requerida en header x-api-key'
+            })
+        
+        if api_key == admin_api_key:
+            return JsonResponse({'valid': True})
+        else:
+            return JsonResponse({
+                'valid': False,
+                'message': 'API Key inválida'
+            })
+    
+    def post(self, request):
+        try:
+            # Obtener el body del request
+            data = json.loads(request.body)
+            api_key = data.get('apiKey', '')
+            
+            # Obtener la API key desde settings
+            admin_api_key = getattr(settings, 'ADMIN_API_KEY', '')
+            
+            if not api_key:
+                return JsonResponse({
+                    'valid': False,
+                    'message': 'La API Key es requerida'
+                })
+            
+            if api_key == admin_api_key:
+                return JsonResponse({'valid': True})
+            else:
+                return JsonResponse({
+                    'valid': False,
+                    'message': 'API Key inválida'
+                })
+                
+        except json.JSONDecodeError:
+            return JsonResponse({
+                'valid': False,
+                'message': 'Error en el formato de la solicitud'
+            })

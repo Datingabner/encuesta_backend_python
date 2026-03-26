@@ -1,6 +1,7 @@
 """
 Django settings for encuesta_backend project.
 """
+from multiprocessing.util import DEBUG
 import os
 from pathlib import Path
 from datetime import timedelta
@@ -16,11 +17,17 @@ load_dotenv()
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-encuestas-salud-mental-2024')
+SECRET_KEY = os.environ.get('SECRET_KEY')
+if not SECRET_KEY:
+    raise ValueError("SECRET_KEY environment variable is required for production")
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.environ.get('DEBUG', 'True').lower() == 'true'
-
+DEBUG = False
+if not DEBUG:
+    SECURE_SSL_REDIRECT = True
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    SECURE_BROWSER_XSS_FILTER = True
 ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
 
 # Application definition
@@ -76,7 +83,7 @@ DATABASES = {
         'ENGINE': 'django.db.backends.postgresql',
         'NAME': os.environ.get('DB_NAME', 'encuestas_salud'),
         'USER': os.environ.get('DB_USER', 'postgres'),
-        'PASSWORD': os.environ.get('DB_PASSWORD', 'abner'),
+        'PASSWORD': os.environ.get('DB_PASSWORD'),
         'HOST': os.environ.get('DB_HOST', 'localhost'),
         'PORT': os.environ.get('DB_PORT', '5432'),
     }
@@ -139,6 +146,18 @@ CORS_ALLOWED_ORIGINS = os.environ.get(
     'http://localhost:3000,http://127.0.0.1:3000,http://localhost:5173'
 ).split(',')
 CORS_ALLOW_CREDENTIALS = True
+CORS_ALLOW_HEADERS = [
+    'accept',
+    'accept-encoding',
+    'authorization',
+    'content-type',
+    'dnt',
+    'origin',
+    'user-agent',
+    'x-api-key',
+    'x-csrftoken',
+    'x-requested-with',
+]
 
 # Email settings
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
@@ -148,15 +167,71 @@ EMAIL_USE_TLS = True
 EMAIL_USE_SSL = False
 
 EMAIL_HOST_USER = os.environ.get('EMAIL_USER', 'devcoder.contacto@gmail.com')
-EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_PASS', 'kguy ccht gxzk edgr')
+EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_PASS')
 DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', 'devcoder.contacto@gmail.com')
 
 
 # Configurar contexto SSL con los certificados de certifi
+# Explicitly set minimum TLS version to TLS 1.2 for security (S4423)
 ssl_context = ssl.create_default_context(cafile=certifi.where())
+ssl_context.minimum_version = ssl.TLSVersion.TLSv1_2
 EMAIL_SSL_CONTEXT = ssl_context
 
 
 # App settings
-#RRHH_EMAIL = os.environ.get('RRHH_EMAIL', 'rrhh@empresa.com')
-#ADMIN_API_KEY = os.environ.get('ADMIN_API_KEY', 'admin-key-encuestas-2024')
+RRHH_EMAIL = os.environ.get('RRHH_EMAIL', 'rrhh@empresa.com')
+ADMIN_API_KEY = os.environ.get('ADMIN_API_KEY', 'admin-key-encuestas-2024')
+
+# Logging configuration
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': '{levelname} {asctime} {module} {process:d} {thread:d} {message}',
+            'style': '{',
+        },
+        'simple': {
+            'format': '{levelname} {asctime} {module} {message}',
+            'style': '{',
+        },
+    },
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+            'formatter': 'simple',
+        },
+        'file': {
+            'class': 'logging.FileHandler',
+            'filename': 'logs/encuestas.log',
+            'formatter': 'verbose',
+        },
+    },
+    'root': {
+        'handlers': ['console'],
+        'level': 'INFO',
+    },
+    'loggers': {
+        'django': {
+            'handlers': ['console'],
+            'level': 'WARNING',
+            'propagate': False,
+        },
+        'api': {
+            'handlers': ['console'],
+            'level': 'DEBUG',
+            'propagate': False,
+        },
+    },
+}
+
+# Security settings for production
+if not DEBUG:
+    # HTTPS settings
+    SECURE_SSL_REDIRECT = True
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    SECURE_HSTS_SECONDS = 31536000  # 1 year
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True

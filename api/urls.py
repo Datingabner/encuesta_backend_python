@@ -12,6 +12,7 @@ from .views import (
     SubmitSurveyView,
     GetProgressView,
     GetResultsView,
+    ValidateApiKeyView,
 )
 
 # Router para viewsets
@@ -23,6 +24,10 @@ urlpatterns = [
     path('auth/validar-empleado', ValidarEmpleadoView.as_view(), name='validar-empleado'),
     path('auth/token/', TokenObtainPairViewCustom.as_view(), name='token_obtain_pair'),
     path('auth/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
+    
+    # API Key validation endpoint
+    path('api/admin/validate-key', ValidateApiKeyView.as_view(), name='validate-api-key'),
+
     
     # Survey endpoints
     path('encuestas/<int:survey_id>', GetSurveyView.as_view(), name='get-survey'),

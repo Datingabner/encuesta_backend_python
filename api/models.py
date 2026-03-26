@@ -45,7 +45,8 @@ class EmpleadoManager(BaseUserManager):
         except cls.DoesNotExist:
             return None
 
-
+cons_creado_en="Creado En"
+cons_actual_en="Actualizado En"
 class Empleado(AbstractBaseUser, PermissionsMixin):
     """
     Modelo de Empleado
@@ -65,11 +66,12 @@ class Empleado(AbstractBaseUser, PermissionsMixin):
         blank=True, 
         verbose_name='ID Departamento'
     )
+    
     activo = models.BooleanField(default=True, verbose_name='Activo')
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
-    creado_en = models.DateTimeField(auto_now_add=True, verbose_name='Creado En')
-    actualizado_en = models.DateTimeField(auto_now=True, verbose_name='Actualizado En')
+    creado_en = models.DateTimeField(auto_now_add=True, verbose_name=cons_creado_en)
+    actualizado_en = models.DateTimeField(auto_now=True, verbose_name=cons_actual_en)
 
     objects = EmpleadoManager()
 
@@ -116,8 +118,8 @@ class Encuesta(models.Model):
         help_text='Array de preguntas en formato JSON'
     )
     activa = models.BooleanField(default=True, verbose_name='Activa')
-    creado_en = models.DateTimeField(auto_now_add=True, verbose_name='Creado En')
-    actualizado_en = models.DateTimeField(auto_now=True, verbose_name='Actualizado En')
+    creado_en = models.DateTimeField(auto_now_add=True, verbose_name=cons_creado_en)
+    actualizado_en = models.DateTimeField(auto_now=True, verbose_name=cons_actual_en)
 
     class Meta:
         db_table = 'encuestas'
@@ -192,8 +194,8 @@ class ResultadoEncuestas(models.Model):
     iniciado_en = models.DateField(null=True, blank=True, verbose_name='Iniciado En')
     fecha_completado = models.DateField(null=True, blank=True, verbose_name='Fecha Completado')
     enviado_en = models.DateTimeField(auto_now_add=True, verbose_name='Enviado En')
-    creado_en = models.DateTimeField(auto_now_add=True, verbose_name='Creado En')
-    actualizado_en = models.DateTimeField(auto_now=True, verbose_name='Actualizado En')
+    creado_en = models.DateTimeField(auto_now_add=True, verbose_name=cons_creado_en)
+    actualizado_en = models.DateTimeField(auto_now=True, verbose_name=cons_actual_en)
 
     class Meta:
         db_table = 'resultado_encuestas'
@@ -267,7 +269,6 @@ class RespuestasEncuesta(models.Model):
     sesion_id = models.CharField(
         max_length=100, 
         blank=True, 
-        null=True,
         db_index=True,
         verbose_name='ID de Sesión'
     )
@@ -275,8 +276,8 @@ class RespuestasEncuesta(models.Model):
         default=timezone.now, 
         verbose_name='Contestadas En'
     )
-    creado_en = models.DateTimeField(auto_now_add=True, verbose_name='Creado En')
-    actualizado_en = models.DateTimeField(auto_now=True, verbose_name='Actualizado En')
+    creado_en = models.DateTimeField(auto_now_add=True, verbose_name=cons_creado_en)
+    actualizado_en = models.DateTimeField(auto_now=True, verbose_name=cons_actual_en)
 
     class Meta:
         db_table = 'respuestas_encuesta'
@@ -344,8 +345,8 @@ class Notificacion(models.Model):
     enviado_en = models.DateTimeField(null=True, blank=True, verbose_name='Enviado En')
     mensaje_error = models.TextField(blank=True, default='', verbose_name='Mensaje de Error')
     intentos = models.IntegerField(default=0, verbose_name='Intentos')
-    creado_en = models.DateTimeField(auto_now_add=True, verbose_name='Creado En')
-    actualizado_en = models.DateTimeField(auto_now=True, verbose_name='Actualizado En')
+    creado_en = models.DateTimeField(auto_now_add=True, verbose_name=cons_creado_en)
+    actualizado_en = models.DateTimeField(auto_now=True, verbose_name=cons_actual_en)
 
     class Meta:
         db_table = 'notificaciones'
