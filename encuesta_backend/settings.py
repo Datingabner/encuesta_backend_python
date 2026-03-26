@@ -197,16 +197,11 @@ LOGGING = {
         },
     },
     'handlers': {
-        'console': {
-            'class': 'logging.StreamHandler',
-            'formatter': 'simple',
-        },
-        'file': {
-            'class': 'logging.FileHandler',
-            'filename': 'logs/encuestas.log',
-            'formatter': 'verbose',
-        },
+    'console': {
+        'class': 'logging.StreamHandler',
+        'formatter': 'simple',
     },
+}
     'root': {
         'handlers': ['console'],
         'level': 'INFO',
