@@ -8,6 +8,7 @@ from .views import (
     ValidarEmpleadoView,
     TokenObtainPairViewCustom,
     EncuestaViewSet,
+    EmpleadoViewSet,
     GetSurveyView,
     SubmitSurveyView,
     GetProgressView,
@@ -18,6 +19,7 @@ from .views import (
 # Router para viewsets
 router = DefaultRouter()
 router.register(r'encuestas', EncuestaViewSet, basename='encuesta')
+router.register(r'empleados', EmpleadoViewSet, basename='empleado')
 
 urlpatterns = [
     # Auth endpoints
@@ -27,6 +29,7 @@ urlpatterns = [
     
     # API Key validation endpoint
     path('api/admin/validate-key', ValidateApiKeyView.as_view(), name='validate-api-key'),
+    path('api/validate-key/', ValidateApiKeyView.as_view(), name='validate-api-key'),
 
     
     # Survey endpoints

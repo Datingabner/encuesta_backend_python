@@ -24,6 +24,8 @@ from .models import Empleado, Encuesta, ResultadoEncuestas, RespuestasEncuesta, 
 from .serializers import (
     TokenObtainPairSerializerCustom,
     ValidarEmpleadoSerializer,
+    EmpleadoSerializer,
+    EmpleadoCreateSerializer,
     EncuestaSerializer,
     EncuestaDetailSerializer,
     SubmitSurveySerializer,
@@ -535,3 +537,76 @@ class ValidateApiKeyView(View):
                 'valid': False,
                 'message': 'Error en el formato de la solicitud'
             })
+
+
+# ============== Empleado CRUD Views ==============
+
+class EmpleadoViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet para CRUD de empleados (solo admin/RH).
+    
+    Endpoints:
+    - GET /api/empleados - Listar todos los empleados
+    - POST /api/empleados - Crear nuevo empleado
+    - GET /api/empleados/<id> - Obtener empleado específico
+    - PUT /api/empleados/<id> - Actualizar empleado
+    - PATCH /api/empleados/<id> - Actualización parcial
+    - DELETE /api/empleados/<id> - Eliminar empleado
+    """
+    queryset = Empleado.objects.all()
+    permission_classes = [APIKeyPermission]
+    
+    def get_serializer_class(self):
+        if self.action in ['create', 'update', 'partial_update']:
+            return EmpleadoCreateSerializer
+        return EmpleadoSerializer
+    
+    def get_queryset(self):
+        queryset = Empleado.objects.all()
+        # Filtrar por parámetros de query
+        activo = self.request.query_params.get('activo')
+        if activo is not None:
+            queryset = queryset.filter(activo=activo.lower() == 'true')
+        
+        departamento = self.request.query_params.get('departamento')
+        if departamento:
+            queryset = queryset.filter(id_departamento=departamento)
+        
+        return queryset
+    
+    def destroy(self, request, *args, **kwargs):
+        """
+        Eliminación lógica (soft delete) - marcar activo=False
+        """
+        instance = self.get_object()
+        instance.activo = False
+        instance.save()
+        return Response(
+            {'success': True, 'message': 'Empleado desactivado correctamente'},
+            status=status.HTTP_200_OK
+        )
+    
+    def create(self, request, *args, **kwargs):
+        """
+        Crear nuevo empleado
+        """
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        self.perform_create(serializer)
+        return Response(
+            {'success': True, 'message': 'Empleado creado correctamente', 'data': serializer.data},
+            status=status.HTTP_201_CREATED
+        )
+    
+    def update(self, request, *args, **kwargs):
+        """
+        Actualizar empleado
+        """
+        partial = kwargs.pop('partial', False)
+        instance = self.get_object()
+        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+        self.perform_update(serializer)
+        return Response(
+            {'success': True, 'message': 'Empleado actualizado correctamente', 'data': serializer.data}
+        )

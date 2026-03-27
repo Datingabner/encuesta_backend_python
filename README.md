@@ -187,6 +187,19 @@ Para usar Gmail como servidor de correo:
 |--------|----------|-------------|------|
 | GET | `/api/empleado/progress` | Obtiene progreso del empleado | JWT |
 
+### Gestión de Empleados (Admin/RH)
+
+| Método | Endpoint | Descripción | Auth |
+|--------|----------|-------------|------|
+| GET | `/api/empleados` | Lista todos los empleados | API Key |
+| GET | `/api/empleados?activo=true` | Filtra empleados activos | API Key |
+| GET | `/api/empleados?departamento=1` | Filtra por departamento | API Key |
+| POST | `/api/empleados` | Crea nuevo empleado | API Key |
+| GET | `/api/empleados/<id>` | Obtiene empleado por ID | API Key |
+| PUT | `/api/empleados/<id>` | Actualiza empleado completo | API Key |
+| PATCH | `/api/empleados/<id>` | Actualiza empleado parcialmente | API Key |
+| DELETE | `/api/empleados/<id>` | Desactiva empleado (soft delete) | API Key |
+
 ### Administración
 
 | Método | Endpoint | Descripción | Auth |
@@ -262,6 +275,99 @@ curl -X POST http://localhost:8000/api/admin/validate-key \
 ```bash
 curl -X GET "http://localhost:8000/api/admin/results?departamento=1&tipo_encuesta=ansiedad" \
   -H "x-api-key: tu_api_key"
+```
+
+### 6. CRUD Empleados (Admin)
+
+#### Listar empleados
+```bash
+# Todos los empleados
+curl -X GET "http://localhost:8000/api/empleados" \
+  -H "x-api-key: tu_api_key"
+
+# Solo activos
+curl -X GET "http://localhost:8000/api/empleados?activo=true" \
+  -H "x-api-key: tu_api_key"
+
+# Por departamento
+curl -X GET "http://localhost:8000/api/empleados?departamento=1" \
+  -H "x-api-key: tu_api_key"
+```
+
+#### Crear empleado
+```bash
+curl -X POST http://localhost:8000/api/empleados \
+  -H "x-api-key: tu_api_key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "numero_empleado": "EMP001",
+    "nombre_completo": "Juan Pérez",
+    "email": "juan.perez@empresa.com",
+    "id_departamento": 1,
+    "password": "password123",
+    "activo": true
+  }'
+```
+
+**Respuesta:**
+```json
+{
+  "success": true,
+  "message": "Empleado creado correctamente",
+  "data": {
+    "id": 1,
+    "numero_empleado": "EMP001",
+    "nombre_completo": "Juan Pérez",
+    "email": "juan.perez@empresa.com",
+    "id_departamento": 1,
+    "activo": true
+  }
+}
+```
+
+#### Obtener empleado por ID
+```bash
+curl -X GET "http://localhost:8000/api/empleados/1" \
+  -H "x-api-key: tu_api_key"
+```
+
+#### Actualizar empleado
+```bash
+curl -X PUT http://localhost:8000/api/empleados/1 \
+  -H "x-api-key: tu_api_key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "numero_empleado": "EMP001",
+    "nombre_completo": "Juan Pérez Actualizado",
+    "email": "juan.actualizado@empresa.com",
+    "id_departamento": 2,
+    "password": "nuevopassword123",
+    "activo": true
+  }'
+```
+
+#### Actualización parcial
+```bash
+curl -X PATCH http://localhost:8000/api/empleados/1 \
+  -H "x-api-key: tu_api_key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "id_departamento": 3
+  }'
+```
+
+#### Desactivar empleado (soft delete)
+```bash
+curl -X DELETE "http://localhost:8000/api/empleados/1" \
+  -H "x-api-key: tu_api_key"
+```
+
+**Respuesta:**
+```json
+{
+  "success": true,
+  "message": "Empleado desactivado correctamente"
+}
 ```
 
 ---
