@@ -28,8 +28,7 @@ urlpatterns = [
     path('auth/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     
     # API Key validation endpoint
-    path('api/admin/validate-key', ValidateApiKeyView.as_view(), name='validate-api-key'),
-    path('api/validate-key/', ValidateApiKeyView.as_view(), name='validate-api-key'),
+    path('rh/validate-key', ValidateApiKeyView.as_view(), name='validate-api-key'),
 
     
     # Survey endpoints
@@ -40,7 +39,7 @@ urlpatterns = [
     path('empleado/progress', GetProgressView.as_view(), name='employee-progress'),
     
     # Admin endpoints
-    path('admin/results', GetResultsView.as_view(), name='admin-results'),
+    path('rh/results', GetResultsView.as_view(), name='admin-results'),
     
     # Include router URLs
     path('', include(router.urls)),

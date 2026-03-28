@@ -480,63 +480,62 @@ class GetResultsView(APIView):
         })
 
 
-@method_decorator(csrf_exempt, name='dispatch')
-class ValidateApiKeyView(View):
+class ValidateApiKeyView(APIView):
     """
     Valida la API Key del administrador.
     Soporta validación via POST (body) o GET (header x-api-key).
     """
+    permission_classes = [AllowAny]
     
     def get(self, request):
         """Valida la API Key desde el header x-api-key (para uso en CORS)"""
         # Obtener API Key desde header
-        api_key = request.headers.get('x-api-key') or request.GET.get('api_key')
+        api_key = request.headers.get('x-api-key') or request.query_params.get('api_key')
         
         # Obtener la API key desde settings
         admin_api_key = getattr(settings, 'ADMIN_API_KEY', '')
         
         if not api_key:
-            return JsonResponse({
+            return Response({
                 'valid': False,
                 'message': 'La API Key es requerida en header x-api-key'
-            })
+            }, status=status.HTTP_400_BAD_REQUEST)
         
         if api_key == admin_api_key:
-            return JsonResponse({'valid': True})
+            return Response({'valid': True})
         else:
-            return JsonResponse({
+            return Response({
                 'valid': False,
                 'message': 'API Key inválida'
-            })
+            }, status=status.HTTP_401_UNAUTHORIZED)
     
     def post(self, request):
         try:
             # Obtener el body del request
-            data = json.loads(request.body)
-            api_key = data.get('apiKey', '')
+            api_key = request.data.get('apiKey', '')
             
             # Obtener la API key desde settings
             admin_api_key = getattr(settings, 'ADMIN_API_KEY', '')
             
             if not api_key:
-                return JsonResponse({
+                return Response({
                     'valid': False,
                     'message': 'La API Key es requerida'
-                })
+                }, status=status.HTTP_400_BAD_REQUEST)
             
             if api_key == admin_api_key:
-                return JsonResponse({'valid': True})
+                return Response({'valid': True})
             else:
-                return JsonResponse({
+                return Response({
                     'valid': False,
                     'message': 'API Key inválida'
-                })
+                }, status=status.HTTP_401_UNAUTHORIZED)
                 
-        except json.JSONDecodeError:
-            return JsonResponse({
+        except Exception as e:
+            return Response({
                 'valid': False,
                 'message': 'Error en el formato de la solicitud'
-            })
+            }, status=status.HTTP_400_BAD_REQUEST)
 
 
 # ============== Empleado CRUD Views ==============
